@@ -1,6 +1,7 @@
 import lodash from 'lodash'
 import ArtisMark from './ArtisMark.js'
 import { Meta } from '#miao'
+import WeightOverride from '../../components/WeightOverride.js'
 
 const weaponCfg = {
   磐岩结绿: {
@@ -37,9 +38,7 @@ const ArtisMarkCfg = {
       }
     }
 
-    let def = function (attrWeight) {
-      let title = []
-
+    let def = function (attrWeight, title = []) {
       let weight = lodash.extend({}, attrWeight || usefulAttr[char.name] || {})
       let check = (key, max = 75, maxPlus = 75, isWeapon = true) => {
         let original = weight[key] || 0
@@ -90,7 +89,7 @@ const ArtisMarkCfg = {
         }
       }
 
-      title = title.length > 0 ? title.join('') : '通用'
+      title = title.length > 0 ? title.join('|') : '通用'
       return {
         title: `${char.abbr}-${title}`,
         attrWeight: weight
@@ -103,7 +102,19 @@ const ArtisMarkCfg = {
     }
 
     if (charRule) {
-      return charRule({ attr, elem, artis, rule, def, weapon, cons: profile.cons })
+      let ret = charRule({ attr, elem, artis, rule, def, weapon, cons: profile.cons })
+      // 面板权重:临时覆盖该角色评分权重
+      // 这里只读取不擦除,由 #面板权重 命令出完图后统一擦除,保证整张图生效
+      let override = WeightOverride.peek(`${char.game}:${char.name}`)
+      if (ret && override) {
+        let merged = { ...(ret.attrWeight || {}), ...override }
+        let show = Object.keys(override)
+          .map(k => `${WeightOverride.ATTR_SHOW_MAP[k] || k}${override[k]}`)
+          .join('·')
+        ret.title = `${ret.title}·自定义(${show})`
+        ret.attrWeight = merged
+      }
+      return ret
     }
   },
 
