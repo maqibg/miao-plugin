@@ -1,0 +1,50 @@
+# 每天自动合并上游 miao-plugin
+#
+# 本 fork 对上游文件的改动只有两类，均为「追加」：
+#   1. index.js       ：引入自定义层、合并指令导出
+#   2. package.json   ：imports 增加 #liangshi 映射
+# 其余全部在 custom/ 目录内。因此上游正常更新时几乎不会冲突；
+# 若真冲突，保留上述两处 fork 专属代码即可。
+name: 同步上游 miao
+
+on:
+  schedule:
+    # UTC 20:00 = 北京时间 04:00，排在梁氏同步之后
+    - cron: '0 20 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 合并上游
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git remote add upstream https://github.com/yoimiya-kokomi/miao-plugin.git 2>/dev/null || true
+          git fetch upstream master --no-tags
+          git merge upstream/master --no-edit -m "chore: 合并上游 miao $(date +%F) [skip ci]"
+
+      - name: 自检（钩子是否仍与上游兼容）
+        run: node custom/selfcheck.js
+
+      - name: 推送
+        run: git push
+
+      - name: 失败时提示人工处理
+        if: failure()
+        run: |
+          echo "::error::上游合并或自检失败，需要人工处理冲突。"
+          echo "常见原因：index.js / package.json 的同名区域被上游一并修改。"
+          echo "处理原则：保留 fork 专属的 installCustom() 与 #liangshi imports，其余以上游为准。"

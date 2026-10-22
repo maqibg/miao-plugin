@@ -21,3 +21,9 @@
 /resources/profile/super-character/*
 /resources/profile/normal-character/*
 /node_modules/
+# fork 专属：用户自定义数据（权重/条目/方案），不进 git，避免被上游同步覆盖
+/custom/data/
+/custom/config/permission.json
+# fork 专属：梁氏运行时生成的配置文件
+/custom/liangshi/config/ranking.json
+/custom/liangshi/config/calc.json

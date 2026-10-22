@@ -1,0 +1,48 @@
+# 每天自动同步梁氏方案
+#
+# 只同步「计算用得到」的部分（damage / components / config / CalcBuff），
+# 不改动上游 miao 的任何文件，也不碰用户数据（custom/data）。
+name: 同步梁氏方案
+
+on:
+  schedule:
+    # UTC 19:00 = 北京时间 03:00，避开使用高峰
+    - cron: '0 19 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: 下载 liangshi-calc
+        run: |
+          curl -fsSL -o /tmp/ls.tar.gz https://github.com/liangshi233/liangshi-calc/archive/refs/heads/master.tar.gz
+          mkdir -p /tmp/ls
+          tar -xzf /tmp/ls.tar.gz -C /tmp/ls --strip-components=1
+
+      - name: 同步到 custom/liangshi
+        run: node custom/tools/sync-liangshi.mjs /tmp/ls
+
+      - name: 自检
+        run: node custom/selfcheck.js
+
+      - name: 提交变更
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          if [ -n "$(git status --porcelain custom/liangshi)" ]; then
+            git add custom/liangshi
+            git commit -m "chore: 同步梁氏方案 $(date +%F) [skip ci]"
+            git push
+          else
+            echo "梁氏方案无变化"
+          fi
