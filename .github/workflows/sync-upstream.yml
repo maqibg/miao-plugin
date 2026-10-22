@@ -36,6 +36,10 @@ jobs:
           git fetch upstream master --no-tags
           git merge upstream/master --no-edit -m "chore: 合并上游 miao $(date +%F) [skip ci]"
 
+      - name: 安装自检依赖
+        # miao 的 models 层依赖宿主提供 lodash/moment 等包，独立 checkout 时需要补齐
+        run: npm install --no-save lodash moment node-fetch md5 image-size cheerio
+
       - name: 自检（钩子是否仍与上游兼容）
         run: node custom/selfcheck.js
 

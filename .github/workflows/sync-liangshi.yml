@@ -32,6 +32,10 @@ jobs:
       - name: 同步到 custom/liangshi
         run: node custom/tools/sync-liangshi.mjs /tmp/ls
 
+      - name: 安装自检依赖
+        # miao 的 models 层依赖宿主提供 lodash/moment 等包，独立 checkout 时需要补齐
+        run: npm install --no-save lodash moment node-fetch md5 image-size cheerio
+
       - name: 自检
         run: node custom/selfcheck.js
 
