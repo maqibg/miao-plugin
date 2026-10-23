@@ -33,6 +33,7 @@ function log (msg) {
 
 if (!fs.existsSync(SRC)) {
   console.error(`[sync-liangshi] 源目录不存在：${SRC}`)
+  console.error('本地已移除 liangshi-calc 插件时，可传入源目录参数，或直接依赖 GitHub Action 每日同步')
   process.exit(1)
 }
 
@@ -91,14 +92,25 @@ walk(DEST)
 log(`路径改写：${changedFiles} 个文件，${changedRefs} 处引用`)
 
 // 3. 记录版本，供控制台与图底部展示
-fs.writeFileSync(
-  path.join(DEST, 'VERSION'),
-  JSON.stringify({
+//
+// 只有版本号变化时才写 VERSION：syncedAt 是当天日期，无条件写入会让每天
+// 都产生一条"只改日期"的空提交，把提交历史灌满。
+// 同版本下梁氏改动的文件仍会通过 git diff 触发正常提交，不受影响。
+const versionFile = path.join(DEST, 'VERSION')
+let oldVersion = ''
+try {
+  oldVersion = JSON.parse(fs.readFileSync(versionFile, 'utf8')).version || ''
+} catch {
+  oldVersion = ''
+}
+if (oldVersion !== version) {
+  fs.writeFileSync(versionFile, JSON.stringify({
     version,
     source: 'liangshi-calc',
     syncedAt: new Date().toISOString().slice(0, 10)
-  }, null, 2),
-  'utf8'
-)
-log('已写入 VERSION')
+  }, null, 2), 'utf8')
+  log(`VERSION：${oldVersion || '(无)'} → ${version}`)
+} else {
+  log(`VERSION 未变化（${version}），跳过写入`)
+}
 log('完成')
