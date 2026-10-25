@@ -199,27 +199,33 @@ const MysAvatar = {
     let needReqIds = MysAvatar.getNeedRefreshIds(player, ids, force)
     let refreshCount = 0
     let failCount = 0
-    if (needReqIds.length > 0) {
-      if (needReqIds.length > 8) {
-        e && e.reply('正在获取角色信息，请稍候...')
+    // detail 是内部补数据，个别角色查不到时只记日志，不往群里发提示
+    e._miaoDetailQuiet = true
+    try {
+      if (needReqIds.length > 0) {
+        if (needReqIds.length > 8) {
+          e && e.reply('正在获取角色信息，请稍候...')
+        }
+        // 并发5，请求天赋数据
+        await Data.asyncPool(5, needReqIds, async (id) => {
+          let avatar = player.getAvatar(id)
+          if (!avatar) {
+            return false
+          }
+          if (avatar.isMaxTalent || failCount > 5) {
+            avatar.setTalent(false, 'original', true)
+            return false
+          }
+          let ret = await MysAvatar.refreshAvatarTalent(avatar, mys)
+          if (ret === false) {
+            failCount++
+          } else {
+            refreshCount++
+          }
+        })
       }
-      // 并发5，请求天赋数据
-      await Data.asyncPool(5, needReqIds, async (id) => {
-        let avatar = player.getAvatar(id)
-        if (!avatar) {
-          return false
-        }
-        if (avatar.isMaxTalent || failCount > 5) {
-          avatar.setTalent(false, 'original', true)
-          return false
-        }
-        let ret = await MysAvatar.refreshAvatarTalent(avatar, mys)
-        if (ret === false) {
-          failCount++
-        } else {
-          refreshCount++
-        }
-      })
+    } finally {
+      delete e._miaoDetailQuiet
     }
     player.save()
     return refreshCount
@@ -235,6 +241,9 @@ const MysAvatar = {
       let talent = {}
       let talentRes = await mys.getDetail(id)
       let game = avatar.game
+      if (talentRes && talentRes.retcode && talentRes.retcode !== 0) {
+        globalThis.logger?.mark?.(`[天赋刷新失败]角色:${char.name}(${id})，retcode:${talentRes.retcode}，${talentRes.message || ''}`)
+      }
       if (game === 'gs' && talentRes && talentRes.skill_list) {
         let talentList = lodash.orderBy(talentRes.skill_list, ['id'], ['asc'])
         talentList = talentList.filter(val => val.max_level >= 10 && val.level_current > 0)

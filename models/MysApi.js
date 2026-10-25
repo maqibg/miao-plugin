@@ -186,6 +186,10 @@ export default class MysApi {
     e._original_reply = e._original_reply || e.reply
     e._reqCount = e._reqCount || 0
     e.reply = function (msg) {
+      // 刷天赋的detail请求属于内部补数据，失败不打扰群聊（日志另有记录）
+      if (api === 'detail' && e._miaoDetailQuiet) {
+        return
+      }
       if (!e._isReplyed) {
         e._isReplyed = true
         return e._original_reply(msg)
