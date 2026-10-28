@@ -16,7 +16,7 @@ import { App } from '#miao'
 import { resolveChar, getRule, getCharOverride, charKey } from '../lib/rule.js'
 import { saveOverride } from '../lib/override.js'
 import { canEdit } from '../lib/permission.js'
-import { fmtWeights, parseWeights } from '../lib/weights.js'
+import { fmtWeights, parseWeights, badAttrHint } from '../lib/weights.js'
 import { attrLabel, formatEntryText } from '../lib/entry-view.js'
 import { rerender } from '../lib/render.js'
 import { liangshiCalcPath } from '../lib/override.js'
@@ -64,6 +64,7 @@ function weightMenu (state) {
   })
   lines.push('')
   lines.push(' 0 保存并出图')
+  lines.push(' r 恢复默认权重')
   lines.push(' # 取消')
   return lines.join('\n')
 }
@@ -138,13 +139,39 @@ async function finishWeight (e, state) {
 
 /** #胡桃面板权重修改 */
 async function weightEntry (e) {
-  const m = /^#(\S+?)面板权重修改$/.exec(String(e.msg || '').trim())
+  // 允许尾部直接带参数：#可莉面板权重修改 攻击力75 / 攻击力 75
+  const m = /^#(\S+?)面板权重修改\s*([\s\S]*)$/.exec(String(e.msg || '').trim())
   if (!m) return false
   const char = resolveChar(m[1])
   if (!char) return e.reply(`没找到角色「${m[1]}」，换个名字试试`)
   if (!canEdit(e)) {
     return e.reply(`${char.name}：你没有修改权限\n（主人可用 #计算权限 添加 @你）`)
   }
+
+  const arg = (m[2] || '').trim()
+  if (arg) {
+    // 带了参数就不进交互，直接一步到位
+    if (/^(默认|重置|恢复默认)$/.test(arg)) {
+      const cur = getCharOverride(char) || {}
+      delete cur.weights
+      saveOverride(charKey(char), char.game, cur)
+      e.reply(`已恢复 ${char.name} 的默认权重`)
+      await rerender(e, char)
+      return true
+    }
+    const { out, bad } = parseWeights(arg)
+    if (bad.length) return e.reply(badAttrHint(bad))
+    if (!Object.keys(out).length) {
+      return e.reply(`没识别到权重，例如：#${char.name}面板权重修改 暴击=80`)
+    }
+    const cur = getCharOverride(char) || {}
+    cur.weights = { ...(cur.weights || {}), ...out }
+    saveOverride(charKey(char), char.game, cur)
+    e.reply(`已更新 ${char.name} 权重：${fmtWeights(cur.weights)}`)
+    await rerender(e, char)
+    return true
+  }
+
   const ov = getCharOverride(char) || {}
   const state = {
     kind: 'weight',
@@ -181,6 +208,13 @@ async function weightPick (e, state, msg) {
     await finishWeight(e, state)
     this.finish('interactive')
     sessions.delete(sessionKey(e))
+    return true
+  }
+
+  // 恢复默认：先清空草稿，回复 0 才真正落盘（保留反悔余地）
+  if (/^(默认|重置|恢复默认|r)$/i.test(msg)) {
+    state.draft = {}
+    e.reply(`已清空为默认权重，回复 0 保存生效\n\n${weightMenu(state)}`)
     return true
   }
 
@@ -369,7 +403,7 @@ async function interactive (e) {
 }
 
 app.reg({
-  weightEntry: { name: '权重修改引导', fn: weightEntry, rule: /^#(\S+?)面板权重修改$/ },
+  weightEntry: { name: '权重修改引导', fn: weightEntry, rule: /^#(\S+?)面板权重修改\s*.*$/ },
   calcEntry: { name: '计算修改引导', fn: calcEntry, rule: /^#(\S+?)面板计算修改$/ },
   // 规则本身不会被正则命中：上下文由 setContext 直接调用
   interactive: { name: '引导式交互', fn: interactive, rule: /^#__引导内部使用__$/ }
