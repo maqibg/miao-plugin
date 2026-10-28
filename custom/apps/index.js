@@ -8,12 +8,14 @@ import consoleApp from './console.js'
 import permissionApp from './permission.js'
 import editApp from './edit.js'
 import weightApp from './weight.js'
+import interactiveApp from './interactive.js'
 
 const customApps = {
   calcConsole: consoleApp.v3App(),
   calcPerm: permissionApp.v3App(),
   calcEdit: editApp.v3App(),
-  calcWeight: weightApp.v3App()
+  calcWeight: weightApp.v3App(),
+  calcInteractive: interactiveApp.v3App()
 }
 
 export { customApps }

@@ -7,18 +7,20 @@
  * 只写 custom/data 下的用户数据，不碰梁氏目录与上游文件。
  */
 import { App } from '#miao'
-import ProfileDetail from '../../apps/profile/ProfileDetail.js'
 import { resolveChar, getCharOverride, charKey } from '../lib/rule.js'
 import { saveOverride } from '../lib/override.js'
 import { canEdit, canView } from '../lib/permission.js'
 import { parseWeights, badAttrHint, fmtWeights } from '../lib/weights.js'
+import { rerender } from '../lib/render.js'
 
 const app = App.init({ id: 'calcWeight', name: '面板权重', priority: 29 })
 
 const HELP_TEXT = [
   '【面板权重使用说明】',
   '',
-  '改权重：#胡桃面板权重 暴击=80 精通=60',
+  '一步步改（推荐新手）：#胡桃面板权重修改',
+  '',
+  '熟练后一行写完：#胡桃面板权重 暴击=80 精通=60',
   '查看：  #胡桃面板权重',
   '清除：  #胡桃面板权重 清除',
   '',
@@ -38,27 +40,6 @@ const HELP_TEXT = [
 async function help (e) {
   e.reply(HELP_TEXT)
   return true
-}
-
-function panelMsg (char) {
-  return char.game === 'sr' ? `#星铁${char.name}面板` : `#${char.name}面板`
-}
-
-/** 改完立刻用标准角色重新出一次图，让用户直接看到效果 */
-async function rerender (e, char) {
-  const msg = panelMsg(char)
-  try {
-    await ProfileDetail.detail({
-      ...e,
-      msg,
-      original_msg: msg,
-      game: char.game,
-      isSr: char.game === 'sr'
-    })
-  } catch (err) {
-    console.error(`[miao-custom] 权重已保存，但重新出图失败: ${err.message}`)
-    await e.reply('权重已保存，但图片生成失败，可以稍后发 #' + char.name + '面板 查看')
-  }
 }
 
 async function handler (e) {

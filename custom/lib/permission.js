@@ -17,6 +17,7 @@ import { CONFIG_PATH } from './context.js'
 import { readJSON, writeJSON } from './store.js'
 
 const FILE = `${CONFIG_PATH}/permission.json`
+const HISTORY_FILE = `${CONFIG_PATH}/permission.history.json`
 
 const DEFAULT = {
   // true = 启用白名单；false = 关闭白名单，除主人外所有人禁止修改
@@ -43,7 +44,19 @@ export function load () {
   }
 }
 
+/**
+ * 写配置
+ *
+ * 覆盖前先把上一版压进历史（最多 20 条）。权限名单是纯手工维护的数据，
+ * 一旦被误写就无从恢复——这份历史是最后一道保险。
+ */
 export function save (cfg) {
+  const old = readJSON(FILE, null)
+  if (old && typeof old === 'object') {
+    const hist = readJSON(HISTORY_FILE, [])
+    hist.unshift({ at: new Date().toISOString(), data: old })
+    writeJSON(HISTORY_FILE, hist.slice(0, 20))
+  }
   writeJSON(FILE, cfg)
 }
 

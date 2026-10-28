@@ -9,7 +9,7 @@
 import { App } from '#miao'
 import { resolveChar, getRule, getCharOverride, getLiangshiVersion } from '../lib/rule.js'
 import { canView } from '../lib/permission.js'
-import { formatParam } from '../lib/params.js'
+import { formatEntryText, attrLabel } from '../lib/entry-view.js'
 
 const app = App.init({ id: 'calcConsole', name: '计算控制台', priority: 45 })
 
@@ -19,25 +19,9 @@ const ATTR_SHOW = {
   phy: '物伤', heal: '治疗', speed: '速度', stance: '击破'
 }
 
-// dmg() 的第二个参数是伤害类型标记，翻译成中文才有意义
-const DMG_TYPE = {
-  a: '普通攻击', a2: '重击', a3: '下落攻击', e: '元素战技', q: '元素爆发', z: '重击',
-  phy: '物理伤害', vaporize: '蒸发', melt: '融化', aggravate: '超激化', spread: '蔓激化',
-  overloaded: '超载', electrocharged: '感电', superconduct: '超导', swirl: '扩散',
-  crystallize: '结晶', bloom: '绽放', burning: '燃烧', hyperbloom: '超绽放', burgeon: '烈绽放'
-}
-
 function fmtWeights (w) {
   if (!w || !Object.keys(w).length) return '默认'
   return Object.entries(w).map(([k, v]) => `${ATTR_SHOW[k] || k}${v}`).join(' ')
-}
-
-function dmgTypes (src) {
-  const found = []
-  for (const m of src.matchAll(/'([A-Za-z][A-Za-z0-9]*)'/g)) {
-    if (DMG_TYPE[m[1]] && !found.includes(m[1])) found.push(m[1])
-  }
-  return found.map(k => DMG_TYPE[k])
 }
 
 /** #胡桃面板计算 */
@@ -65,7 +49,7 @@ async function showConsole (e) {
   lines.push(`【${char.name} · 计算控制台】`)
   lines.push(`方案：${ov?.scheme === 'basic' ? '梁氏·基础' : 'miao 自带'}`)
   if (lsVer) lines.push(`梁氏版本：${lsVer}`)
-  lines.push(`主属性：${rule.mainAttr.split(',').map(k => ATTR_SHOW[k] || k).join('、')}`)
+  lines.push(`主属性：${rule.mainAttr.split(',').map(k => attrLabel(k)).join('、')}`)
   lines.push(`权重：${fmtWeights(ov?.weights)}`)
   lines.push('')
 
@@ -106,36 +90,8 @@ async function showEntry (e) {
   if (!rule) return e.reply(`${char.name} 没有可用的计算规则`)
 
   const idx = Number(m[2]) - 1
-  const d = rule.details[idx]
-  if (!d) return e.reply(`编号 ${m[2]} 超出范围（共 ${rule.details.length} 条）`)
-
-  const lines = []
-  lines.push(`【${char.name} · 第 ${idx + 1} 条】`)
-  lines.push(`标题：${d.title || '无'}`)
-
-  if (typeof d.dmg === 'function') {
-    // 直接取函数源码，保证说明与实际计算永远一致
-    const src = d.dmg.toString().replace(/\s+/g, ' ')
-    lines.push(`公式：${src.length > 220 ? src.slice(0, 220) + '…' : src}`)
-    const types = dmgTypes(src)
-    if (types.length) lines.push(`计算方式：${types.join('、')}`)
-  } else {
-    lines.push('公式：该条目未定义伤害函数')
-  }
-
-  const params = d.params || {}
-  const keys = Object.keys(params)
-  if (keys.length) {
-    lines.push('触发条件：')
-    for (const k of keys) lines.push(`  ${formatParam(k, params[k])}`)
-  }
-
-  // 梁氏部分条目把 dmgKey 写成字符串 'undefined'，不能原样显示
-  if (d.dmgKey && !/^(undefined|null)$/i.test(String(d.dmgKey))) {
-    lines.push(`排名键：${d.dmgKey}`)
-  }
-
-  e.reply(lines.join('\n'))
+  if (!rule.details[idx]) return e.reply(`编号 ${m[2]} 超出范围（共 ${rule.details.length} 条）`)
+  e.reply(formatEntryText(char, rule, idx))
   return true
 }
 
@@ -157,7 +113,7 @@ async function showSource (e) {
   ]
   if (lsVer) lines.push(`梁氏版本：${lsVer}`)
   lines.push(`条目数：${rule.details.length} 条`)
-  lines.push(`主属性：${rule.mainAttr.split(',').map(k => ATTR_SHOW[k] || k).join('、')}`)
+  lines.push(`主属性：${rule.mainAttr.split(',').map(k => attrLabel(k)).join('、')}`)
   e.reply(lines.join('\n'))
   return true
 }
@@ -180,6 +136,10 @@ const HELP_TEXT = [
   '  #胡桃面板计算 启用 2     重新启用',
   '  #胡桃面板计算 撤销       回退上一步修改',
   '  #胡桃面板计算 重置       清空该角色全部自定义',
+  '',
+  '一步步改（不用记命令也能用）：',
+  '  #胡桃面板计算修改       引导式：选方案 / 开关条目 / 看公式',
+  '  #胡桃面板权重修改       引导式：逐个选属性填数值',
   '',
   '评分权重：',
   '  #胡桃面板权重 暴击=80 精通=60',

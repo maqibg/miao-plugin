@@ -28,3 +28,4 @@
 # fork 专属：梁氏运行时生成的配置文件
 /custom/liangshi/config/ranking.json
 /custom/liangshi/config/calc.json
+/custom/config/permission.history.json
